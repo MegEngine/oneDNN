@@ -37,6 +37,33 @@
 #endif
 /// @endcond
 
+#ifndef MKLDNN_ENABLE_EXCEPTIONS
+ #if __cpp_exceptions || __EXCEPTIONS || \
+     (defined(_MSC_VER) && defined(_CPPUNWIND))
+#define MKLDNN_ENABLE_EXCEPTIONS 1
+#else
+#define MKLDNN_ENABLE_EXCEPTIONS 0
+#endif
+#endif
+
+#if defined(__GNUC__) || defined(__clang__)
+#define mkldnn_trap() __builtin_trap()
+#elif defined(__INTEL_COMPILER) || defined(_MSC_VER)
+#define mkldnn_trap() __debugbreak()
+#else
+  #error "unknown compiler"
+#endif
+
+#if MKLDNN_ENABLE_EXCEPTIONS
+#define MKLDNN_THROW(status, msg) throw error(status, msg);
+#else
+#define MKLDNN_THROW(status, msg) \
+    do {                          \
+        fprintf(stderr, msg);     \
+        mkldnn_trap();            \
+    } while (0);
+#endif
+
 namespace dnnl {
 
 /// @addtogroup cpp_api C++ API
@@ -69,7 +96,9 @@ struct error : public std::exception {
     /// @param status The error status returned by the C API.
     /// @param message The error message.
     static void wrap_c_api(dnnl_status_t status, const char *message) {
-        if (status != dnnl_success) throw error(status, message);
+        if (status != dnnl_success) {
+            MKLDNN_THROW(status, message);
+        };
     }
 };
 
@@ -136,10 +165,10 @@ public:
     T get(bool allow_emtpy = false) const {
         T result = _data.get();
 
-        if (allow_emtpy == false && result == nullptr)
-            throw dnnl::error(dnnl_invalid_arguments,
-                    "attempt to use uninitialized object");
-
+        if (allow_emtpy == false && result == nullptr){
+            MKLDNN_THROW(dnnl_invalid_arguments,
+                         "attempt to use uninitialized object");
+        }
         return result;
     }
 
@@ -1003,8 +1032,9 @@ struct memory : public handle<dnnl_memory_t> {
 
     template <typename T>
     static void validate_dims(const std::vector<T> &v) {
-        if (v.size() > DNNL_MAX_NDIMS)
-            throw error(dnnl_invalid_arguments, "invalid dimensions");
+        if (v.size() > DNNL_MAX_NDIMS){
+            MKLDNN_THROW(dnnl_invalid_arguments, "invalid dimensions");
+        }
     }
 
     /// Data type specification
@@ -1881,8 +1911,9 @@ struct primitive_desc : public handle<dnnl_primitive_desc_t> {
                 query::weights_md, query::diff_weights_md, query::dst_md,
                 query::diff_dst_md, query::workspace_md, query::scratchpad_md};
         if (!std::any_of(valid_q.cbegin(), valid_q.cend(),
-                    [=](query q) { return what == q; }))
-            throw error(dnnl_invalid_arguments, "invalid memory query");
+                    [=](query q) { return what == q; })){
+            MKLDNN_THROW(dnnl_invalid_arguments, "invalid memory query");
+        }
 
         const dnnl_memory_desc_t *cdesc = dnnl_primitive_desc_query_md(
                 get(), dnnl::convert_to_c(what), idx);

@@ -232,7 +232,7 @@ using rnn_postgemm_bwd_f32_t = rnn_postgemm_dispatcher<prop_kind::backward,
 using rnn_postgemm_fwd_bf16_t = rnn_postgemm_dispatcher<prop_kind::forward,
         data_type::bf16, data_type::f32>;
 using rnn_postgemm_bwd_bf16_t = rnn_postgemm_dispatcher<prop_kind::backward,
-        data_type::bf16, data_type::f32>;
+        data_type::bf16, data_type::bf16>;
 using rnn_postgemm_fwd_u8_t = rnn_postgemm_dispatcher<prop_kind::forward,
         data_type::u8, data_type::s32>;
 
